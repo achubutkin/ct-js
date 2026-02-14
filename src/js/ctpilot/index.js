@@ -10,10 +10,11 @@ const CTCopilot = (function () {
         
         let decorations = [];
         let inputVisible = false;
+        let showIconTimer = null;
 
         const iconNode = document.createElement('div');
         iconNode.className = 'ct-copilot-icon';
-        iconNode.textContent = '💬';
+        iconNode.innerHTML = '<svg class="nogrow noshrink"><use xlink:href="#ct-pilot"></use></svg>';
 
         const iconWidget = {
             getId() {
@@ -37,11 +38,32 @@ const CTCopilot = (function () {
         const inputContainer = document.createElement('div');
         inputContainer.className = 'ct-copilot-input-container';
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = 'Ask Copilot...';
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'ct-copilot-content-wrapper';
 
-        inputContainer.appendChild(input);
+        const input = document.createElement('textarea');
+        input.rows = 3;
+        input.placeholder = 'Modify selected code';
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'ct-copilot-toolbar';
+
+        const sendButton = document.createElement('button');
+        sendButton.className = 'ct-copilot-send-button';
+        sendButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8l13-6-3 13-3-7-7-0z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        sendButton.title = 'Send (Enter)';
+
+        const closeButton = document.createElement('button');
+        closeButton.className = 'ct-copilot-close-button';
+        closeButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        closeButton.title = 'Close (Esc)';
+
+        toolbar.appendChild(sendButton);
+        toolbar.appendChild(closeButton);
+
+        contentWrapper.appendChild(input);
+        contentWrapper.appendChild(toolbar);
+        inputContainer.appendChild(contentWrapper);
 
         const inputWidget = {
             getId() {
@@ -67,13 +89,17 @@ const CTCopilot = (function () {
 
         function showIcon(selection) {
             iconPosition = {
-                lineNumber: selection.startLineNumber,
+                lineNumber: Math.max(1, selection.startLineNumber - 1),
                 column: 1
             };
             editor.layoutContentWidget(iconWidget);
         }
 
         function hideIcon() {
+            if (showIconTimer) {
+                clearTimeout(showIconTimer);
+                showIconTimer = null;
+            }
             iconPosition = null;
             editor.layoutContentWidget(iconWidget);
         }
@@ -94,6 +120,11 @@ const CTCopilot = (function () {
             decorations = editor.deltaDecorations(decorations, []);
         }
 
+        function updateInputWidth() {
+            const editorLayout = editor.getLayoutInfo();
+            inputContainer.style.width = (editorLayout.contentWidth * 0.8) + 'px';
+        }
+
         function showInput(selection) {
             if (!selection) return;
 
@@ -110,6 +141,8 @@ const CTCopilot = (function () {
                 column: 1
             };
 
+            updateInputWidth();
+
             editor.layoutContentWidget(inputWidget);
 
             setTimeout(() => input.focus(), 50);
@@ -119,6 +152,7 @@ const CTCopilot = (function () {
             inputVisible = false;
             inputPosition = null;
             input.value = '';
+            input.style.height = '';
             editor.layoutContentWidget(inputWidget);
             clearSelectionDecoration();
         }
@@ -161,8 +195,24 @@ const CTCopilot = (function () {
 
         inputContainer.addEventListener('mousedown', e => e.stopPropagation());
 
+        sendButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            const value = input.value.trim();
+            if (value) {
+                console.log('CTCopilot prompt:', value);
+                replaceSelectedText(value);
+            }
+            hideInput();
+        });
+
+        closeButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideInput();
+        });
+
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 const value = input.value.trim();
                 if (value) {
                     console.log('CTCopilot prompt:', value);
@@ -202,7 +252,16 @@ const CTCopilot = (function () {
             }
 
             activeSelection = selection;
-            showIcon(selection);
+            
+            if (showIconTimer) {
+                clearTimeout(showIconTimer);
+            }
+            
+            showIconTimer = setTimeout(() => {
+                if (activeSelection) {
+                    showIcon(activeSelection);
+                }
+            }, 380);
         });
 
         const blurDisposable = editor.onDidBlurEditorWidget(() => {
@@ -219,10 +278,22 @@ const CTCopilot = (function () {
             }
         });
 
+        const layoutDisposable = editor.onDidLayoutChange(() => {
+            if (inputVisible) {
+                updateInputWidth();
+            }
+        });
+
         function dispose() {
+            if (showIconTimer) {
+                clearTimeout(showIconTimer);
+                showIconTimer = null;
+            }
+            
             selectionDisposable.dispose();
             blurDisposable.dispose();
             scrollDisposable.dispose();
+            layoutDisposable.dispose();
 
             clearSelectionDecoration();
 
