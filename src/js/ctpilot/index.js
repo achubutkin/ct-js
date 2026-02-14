@@ -1,11 +1,15 @@
 const CTCopilot = (function () {
 
     function init(editor) {
+
         let activeSelection = null;
         let suppressSelectionHandler = false;
 
         let iconPosition = null;
         let inputPosition = null;
+        
+        let decorations = [];
+        let inputVisible = false;
 
         const iconNode = document.createElement('div');
         iconNode.className = 'ct-copilot-icon';
@@ -74,12 +78,32 @@ const CTCopilot = (function () {
             editor.layoutContentWidget(iconWidget);
         }
 
+        function addSelectionDecoration(selection) {
+            decorations = editor.deltaDecorations(decorations, [
+                {
+                    range: selection,
+                    options: {
+                        className: 'ct-copilot-selection',
+                        isWholeLine: false
+                    }
+                }
+            ]);
+        }
+
+        function clearSelectionDecoration() {
+            decorations = editor.deltaDecorations(decorations, []);
+        }
+
         function showInput(selection) {
             if (!selection) return;
+
+            inputVisible = true;
 
             suppressSelectionHandler = true;
             editor.setSelection(selection);
             suppressSelectionHandler = false;
+
+            addSelectionDecoration(selection);
 
             inputPosition = {
                 lineNumber: selection.startLineNumber,
@@ -88,18 +112,50 @@ const CTCopilot = (function () {
 
             editor.layoutContentWidget(inputWidget);
 
-            setTimeout(() => input.focus());
+            setTimeout(() => input.focus(), 50);
         }
 
         function hideInput() {
+            inputVisible = false;
             inputPosition = null;
+            input.value = '';
             editor.layoutContentWidget(inputWidget);
+            clearSelectionDecoration();
         }
 
-        iconNode.addEventListener('mousedown', e => e.stopPropagation());
-
-        iconNode.addEventListener('click', () => {
+        function replaceSelectedText(text) {
             if (!activeSelection) return;
+
+            const model = editor.getModel();
+            if (!model) return;
+
+            editor.executeEdits('ct-copilot', [
+                {
+                    range: activeSelection,
+                    text: text
+                }
+            ]);
+
+            activeSelection = null;
+            hideIcon();
+        }
+
+        iconNode.addEventListener('mousedown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        iconNode.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (!activeSelection) return;
+            
+            suppressSelectionHandler = true;
+            setTimeout(() => {
+                suppressSelectionHandler = false;
+            }, 100);
+            
             showInput(activeSelection);
         });
 
@@ -107,13 +163,27 @@ const CTCopilot = (function () {
 
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                console.log('CTCopilot prompt:', input.value);
+                const value = input.value.trim();
+                if (value) {
+                    console.log('CTCopilot prompt:', value);
+                    replaceSelectedText(value);
+                }
                 hideInput();
             }
 
             if (e.key === 'Escape') {
                 hideInput();
             }
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (inputVisible) {
+                    hideInput();
+                    activeSelection = null;
+                    hideIcon();
+                }
+            }, 100);
         });
 
         const selectionDisposable = editor.onDidChangeCursorSelection(evt => {
@@ -123,6 +193,8 @@ const CTCopilot = (function () {
             const selection = evt.selection;
 
             if (selection.isEmpty()) {
+                if (inputVisible) return;
+                
                 activeSelection = null;
                 hideIcon();
                 hideInput();
@@ -151,6 +223,8 @@ const CTCopilot = (function () {
             selectionDisposable.dispose();
             blurDisposable.dispose();
             scrollDisposable.dispose();
+
+            clearSelectionDecoration();
 
             editor.removeContentWidget(iconWidget);
             editor.removeContentWidget(inputWidget);
