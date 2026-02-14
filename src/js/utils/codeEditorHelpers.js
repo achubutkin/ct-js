@@ -464,12 +464,12 @@
         }
         extendHotkeys(codeEditor);
 
-        if (localStorage.copilotProvider && localStorage.copilotProviderApiKey) {
+        AIProvider.loadConfig();
+
+        if (AIProvider.isConfigured()) {
             CTCopilot.init(codeEditor);
-            
-            CTCopilot.provider.setProvider(localStorage.copilotProvider);
-            CTCopilot.provider.setApiKey(localStorage.copilotProviderApiKey);
         }
+
         return codeEditor;
     };
 })();

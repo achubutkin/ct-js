@@ -1,4 +1,26 @@
 const AIProvider = {
+    STORAGE_KEY: 'ctCopilotConfig',
+    DEFAULT_PROVIDER: 'openai',
+    DEFAULT_TEMPERATURE: 0.3,
+    
+    PROVIDER_NAMES: {
+        openai: 'OpenAI (GPT-4)',
+        anthropic: 'Anthropic (Claude)',
+        gemini: 'Google (Gemini)'
+    },
+    
+    MODELS: {
+        openai: 'gpt-4o',
+        anthropic: 'claude-3-5-sonnet-20241022',
+        gemini: 'gemini-pro'
+    },
+    
+    API_ENDPOINTS: {
+        openai: 'https://api.openai.com/v1/chat/completions',
+        anthropic: 'https://api.anthropic.com/v1/messages',
+        gemini: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent'
+    },
+
     systemPrompt: `You are a JavaScript code modification assistant. Follow these rules strictly:
 1. Return ONLY the modified code without any explanations, comments, or markdown formatting
 2. Preserve the original code structure and indentation style
@@ -12,14 +34,14 @@ const AIProvider = {
     providers: {
         openai: {
             async complete(prompt, code, apiKey) {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                const response = await fetch(AIProvider.API_ENDPOINTS.openai, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
-                        model: 'gpt-4o',
+                        model: AIProvider.MODELS.openai,
                         messages: [
                             {
                                 role: 'system',
@@ -30,12 +52,13 @@ const AIProvider = {
                                 content: `Code:\n${code}\n\nModification: ${prompt}`
                             }
                         ],
-                        temperature: 0.3
+                        temperature: AIProvider.DEFAULT_TEMPERATURE
                     })
                 });
 
                 if (!response.ok) {
-                    throw new Error('API request failed');
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.error?.message || 'OpenAI API request failed');
                 }
 
                 const data = await response.json();
@@ -45,7 +68,7 @@ const AIProvider = {
 
         anthropic: {
             async complete(prompt, code, apiKey) {
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                const response = await fetch(AIProvider.API_ENDPOINTS.anthropic, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -53,7 +76,7 @@ const AIProvider = {
                         'anthropic-version': '2023-06-01'
                     },
                     body: JSON.stringify({
-                        model: 'claude-3-5-sonnet-20241022',
+                        model: AIProvider.MODELS.anthropic,
                         max_tokens: 4096,
                         messages: [
                             {
@@ -61,12 +84,13 @@ const AIProvider = {
                                 content: `${AIProvider.systemPrompt}\n\nCode:\n${code}\n\nModification: ${prompt}`
                             }
                         ],
-                        temperature: 0.3
+                        temperature: AIProvider.DEFAULT_TEMPERATURE
                     })
                 });
 
                 if (!response.ok) {
-                    throw new Error('API request failed');
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.error?.message || 'Anthropic API request failed');
                 }
 
                 const data = await response.json();
@@ -76,7 +100,7 @@ const AIProvider = {
 
         gemini: {
             async complete(prompt, code, apiKey) {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+                const response = await fetch(`${AIProvider.API_ENDPOINTS.gemini}?key=${apiKey}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -88,13 +112,14 @@ const AIProvider = {
                             }]
                         }],
                         generationConfig: {
-                            temperature: 0.3
+                            temperature: AIProvider.DEFAULT_TEMPERATURE
                         }
                     })
                 });
 
                 if (!response.ok) {
-                    throw new Error('API request failed');
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.error?.message || 'Gemini API request failed');
                 }
 
                 const data = await response.json();
@@ -109,23 +134,36 @@ const AIProvider = {
     },
 
     loadConfig() {
-        const stored = localStorage.getItem('ct-copilot-config');
+        const stored = localStorage.getItem(this.STORAGE_KEY);
         if (stored) {
             try {
-                this.config = JSON.parse(stored);
-            } catch (e) {}
+                const config = JSON.parse(stored);
+                this.config.provider = config.provider || this.DEFAULT_PROVIDER;
+                this.config.apiKey = config.apiKey || '';
+            } catch (e) {
+                console.error('Failed to load AI provider config:', e);
+            }
         }
     },
 
     saveConfig() {
-        localStorage.setItem('ct-copilot-config', JSON.stringify(this.config));
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+                provider: this.config.provider,
+                apiKey: this.config.apiKey
+            }));
+        } catch (e) {
+            console.error('Failed to save AI provider config:', e);
+        }
     },
 
     setProvider(provider) {
         if (this.providers[provider]) {
             this.config.provider = provider;
             this.saveConfig();
+            return true;
         }
+        return false;
     },
 
     setApiKey(apiKey) {
@@ -133,16 +171,36 @@ const AIProvider = {
         this.saveConfig();
     },
 
+    getProvider() {
+        return this.providers[this.config.provider];
+    },
+
+    getProviderName() {
+        return this.PROVIDER_NAMES[this.config.provider] || 'Unknown';
+    },
+
+    isConfigured() {
+        return this.config.apiKey && this.config.apiKey.length > 0;
+    },
+
     async complete(prompt, code) {
-        if (!this.config.apiKey) {
-            throw new Error('API key not configured');
+        if (!this.isConfigured()) {
+            throw new Error('API key not configured. Please set up your AI provider in settings.');
         }
-        const provider = this.providers[this.config.provider];
-        return await provider.complete(prompt, code, this.config.apiKey);
+
+        const provider = this.getProvider();
+        if (!provider) {
+            throw new Error(`Provider "${this.config.provider}" not found`);
+        }
+
+        try {
+            return await provider.complete(prompt, code, this.config.apiKey);
+        } catch (error) {
+            console.error('AI completion error:', error);
+            throw error;
+        }
     }
 };
-
-AIProvider.loadConfig();
 
 const CTCopilot = (function () {
 

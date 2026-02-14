@@ -33,6 +33,22 @@ main-settings
     br
     input(type="text" value="{authoring.appId}" onchange="{wire('authoring.appId')}")
 
+    h2 Ct Pilot
+    p AI-powered code assistant for Monaco Editor. Select code and use natural language to modify it.
+    b AI provider
+    br
+    select(value="{aiProvider}" onchange="{changeAiProvider}" style="width: 15rem;")
+        option(value="openai") OpenAI (GPT-4)
+        option(value="anthropic") Anthropic (Claude)
+        option(value="gemini") Google (Gemini)
+    br
+
+    b Provider API key
+    br
+    input(type="password" value="{aiApiKey}" onchange="{changeAiApiKey}" style="width: 30rem;")
+    br
+    small Get your API key from the provider's website
+
     h2 {voc.main.miscHeading}
     b {voc.main.backups}
     br
@@ -47,4 +63,41 @@ main-settings
 
         this.changeTitle = e => {
             this.authoring.title = e.target.value.trim();
+        };
+
+       this.loadAiConfig = () => {
+            const stored = localStorage.getItem('ct-copilot-config');
+            if (stored) {
+                try {
+                    const config = JSON.parse(stored);
+                    this.aiProvider = config.provider || 'openai';
+                    this.aiApiKey = config.apiKey || '';
+                } catch (e) {
+                    this.aiProvider = 'openai';
+                    this.aiApiKey = '';
+                }
+            } else {
+                this.aiProvider = 'openai';
+                this.aiApiKey = '';
+            }
+        };
+
+        this.saveAiConfig = () => {
+            localStorage.setItem('ctCopilotConfig', JSON.stringify({
+                provider: this.aiProvider,
+                apiKey: this.aiApiKey
+            }));
+        };
+
+        this.loadAiConfig();
+            this.changeAiProvider = e => {
+            this.aiProvider = e.target.value;
+            this.saveAiConfig();
+            this.update();
+        };
+
+        this.changeAiApiKey = e => {
+            this.aiApiKey = e.target.value;
+            this.saveAiConfig();
+            this.update();
         };
