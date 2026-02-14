@@ -464,8 +464,12 @@
         }
         extendHotkeys(codeEditor);
 
-        CTCopilot.init(codeEditor);
-
+        if (localStorage.copilotProvider && localStorage.copilotProviderApiKey) {
+            CTCopilot.init(codeEditor);
+            
+            CTCopilot.provider.setProvider(localStorage.copilotProvider);
+            CTCopilot.provider.setApiKey(localStorage.copilotProviderApiKey);
+        }
         return codeEditor;
     };
 })();
