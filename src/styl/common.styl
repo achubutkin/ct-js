@@ -209,3 +209,27 @@ icon(icon = 'slash', color = act)
 
 .soundthumbnail // not perfect, but will have to do
     filter hue-rotate(hue(act)) saturate(saturation(act) * 1.1) contrast(0.75) brightness(max(red(act), green(act), blue(act)) / 100)
+
+.ct-copilot-icon {
+    background: #007acc;
+    color: white;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    position: relative;
+    left: -28px;
+}
+
+.ct-copilot-input-container {
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+}
+
+.ct-copilot-input-container input {
+    background: #2d2d2d;
+    border: 1px solid #555;
+    color: white;
+    padding: 4px 6px;
+}
+

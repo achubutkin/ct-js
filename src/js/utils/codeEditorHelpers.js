@@ -464,6 +464,8 @@
         }
         extendHotkeys(codeEditor);
 
+        CTCopilot.init(codeEditor);
+
         return codeEditor;
     };
 })();
