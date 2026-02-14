@@ -29,7 +29,19 @@ const AIProvider = {
 5. Maintain existing variable naming conventions
 6. Do not add comments unless specifically requested
 7. Ensure the code is syntactically correct and executable
-8. Keep the same level of code formatting as the original`,
+8. Keep the same level of code formatting as the original
+9. Use documentation from the website 
+    https://docs.ctjs.rocks/templates.html or https://docs.ctjs.rocks/copy.html for any template-specific code or APIs
+    https://docs.ctjs.rocks/rooms.html for any room-specific code or APIs
+    https://docs.ctjs.rocks/res.html for any resource-specific code or APIs
+    https://docs.ctjs.rocks/camera.html for any camera-specific code or APIs
+    https://docs.ctjs.rocks/tilemaps.html for any tilemap-specific code or APIs
+    https://docs.ctjs.rocks/inputs.html for any input-specific code or APIs
+    https://docs.ctjs.rocks/u.html for any utility-specific code or APIs
+10. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
+11. Always prioritize code correctness and functionality over brevity or conciseness
+12. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
+13. Do not include any additional text, explanations, or formatting in your response - return only the modified code`,
 
     providers: {
         openai: {
