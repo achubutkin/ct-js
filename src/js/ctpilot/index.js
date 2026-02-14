@@ -260,7 +260,7 @@ const CTCopilot = (function () {
 
         const input = document.createElement('textarea');
         input.rows = 3;
-        input.placeholder = 'Modify selected code';
+        input.placeholder = 'Describe the changes you want...';
 
         const toolbar = document.createElement('div');
         toolbar.className = 'ct-copilot-toolbar';
