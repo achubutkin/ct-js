@@ -4,6 +4,9 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
 import { Document } from "@langchain/core/documents";
+import "cheerio";
+import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
 class AIProvider {
     static STORAGE_KEY = 'ctCopilotConfig';
@@ -27,10 +30,19 @@ class AIProvider {
 6. Do not add comments unless specifically requested
 7. Ensure the code is syntactically correct and executable
 8. Keep the same level of code formatting as the original
-9. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
-10. Always prioritize code correctness and functionality over brevity or conciseness
-11. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
-12. Do not include any additional text, explanations, or formatting in your response - return only the modified code`;
+9. Use documentation from the website 
+    https://docs.ctjs.rocks/templates.html or https://docs.ctjs.rocks/copy.html for any template-specific code or APIs
+    https://docs.ctjs.rocks/rooms.html for any room-specific code or APIs
+    https://docs.ctjs.rocks/res.html for any resource-specific code or APIs
+    https://docs.ctjs.rocks/camera.html for any camera-specific code or APIs
+    https://docs.ctjs.rocks/tilemaps.html for any tilemap-specific code or APIs
+    https://docs.ctjs.rocks/inputs.html for any input-specific code or APIs
+    https://docs.ctjs.rocks/u.html for any utility-specific code or APIs
+10. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
+11. Always prioritize code correctness and functionality over brevity or conciseness
+12. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
+13. Do not include any additional text, explanations, or formatting in your response - return only the modified code
+14. Use the provided context from CT.js documentation to inform your modifications when relevant`;
 
     static DOCUMENTATION_URLS = [
         'https://docs.ctjs.rocks/templates.html',
@@ -51,6 +63,10 @@ class AIProvider {
         this.graph = null;
         this.vectorStore = null;
         this.embeddings = null;
+        this.textSplitter = new RecursiveCharacterTextSplitter({
+            chunkSize: 1000,
+            chunkOverlap: 200
+        });
         
         this.loadConfig();
         this.initializeRAG();
@@ -95,6 +111,89 @@ class AIProvider {
             console.error('Failed to add documentation:', error);
             return false;
         }
+    }
+
+    async loadWebDocument(url, options = {}) {
+        if (!this.vectorStore) {
+            await this.initializeRAG();
+        }
+
+        try {
+            const loader = new CheerioWebBaseLoader(url, {
+                selector: options.selector || 'body',
+                ...options
+            });
+
+            const docs = await loader.load();
+            
+            // Split documents into chunks
+            const splitDocs = await this.textSplitter.splitDocuments(docs);
+
+            // Add metadata
+            const docsWithMetadata = splitDocs.map(doc => ({
+                ...doc,
+                metadata: {
+                    ...doc.metadata,
+                    source: url,
+                    loadedAt: new Date().toISOString(),
+                    type: 'web',
+                    ...options.metadata
+                }
+            }));
+
+            await this.vectorStore.addDocuments(docsWithMetadata);
+            
+            return {
+                success: true,
+                chunksAdded: docsWithMetadata.length,
+                url
+            };
+        } catch (error) {
+            console.error('Failed to load web document:', error);
+            return {
+                success: false,
+                error: error.message,
+                url
+            };
+        }
+    }
+
+    async loadMultipleWebDocuments(urls, options = {}) {
+        if (!this.vectorStore) {
+            await this.initializeRAG();
+        }
+
+        const results = [];
+        
+        for (const url of urls) {
+            const result = await this.loadWebDocument(url, options);
+            results.push(result);
+            
+            // Add delay between requests to avoid rate limiting
+            if (options.delay) {
+                await new Promise(resolve => setTimeout(resolve, options.delay));
+            }
+        }
+
+        return results;
+    }
+
+    async loadCTJSDocumentation() {
+        console.log('Loading CT.js documentation...');
+        
+        const results = await this.loadMultipleWebDocuments(
+            AIProvider.DOCUMENTATION_URLS,
+            {
+                selector: 'main, article, .documentation-content, .content',
+                metadata: { category: 'ctjs-docs', official: true },
+                delay: 1000 // 1 second delay between requests
+            }
+        );
+
+        const successful = results.filter(r => r.success).length;
+        console.log(`Loaded ${successful}/${results.length} CT.js documentation pages`);
+        
+        return results;
     }
 
     async retrieveContext(query, k = 3) {
@@ -607,6 +706,9 @@ export const CTCopilotModule = {
         return {
             dispose: () => copilot.dispose(),
             addDocumentation: (content, metadata) => aiProvider.addDocumentation(content, metadata),
+            loadWebDocument: (url, options) => aiProvider.loadWebDocument(url, options),
+            loadMultipleWebDocuments: (urls, options) => aiProvider.loadMultipleWebDocuments(urls, options),
+            loadCTJSDocumentation: () => aiProvider.loadCTJSDocumentation(),
             getProvider: () => aiProvider
         };
     },

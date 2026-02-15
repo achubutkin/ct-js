@@ -466,10 +466,8 @@
 
         const copilot = CTCopilotModule.init(codeEditor);
 
-        copilot.addDocumentation(
-            'rooms.switch() changes the current room',
-            { source: 'rooms-api' }
-        );
+        // All CT.js docs at once
+        copilot.loadCTJSDocumentation();
 
         return codeEditor;
     };
