@@ -466,9 +466,6 @@
 
         const copilot = CTCopilotModule.init(codeEditor);
 
-        // All CT.js docs at once
-        copilot.loadCTJSDocumentation();
-
         return codeEditor;
     };
 })();

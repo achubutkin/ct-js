@@ -360,10 +360,11 @@ class CTCopilot {
         this.iconNode = this.createIconNode();
         this.iconWidget = this.createIconWidget();
 
-        const { container, input, statusIndicator, sendButton, closeButton } = this.createInputContainer();
+        const { container, input, statusIndicator, docsButton, sendButton, closeButton } = this.createInputContainer();
         this.inputContainer = container;
         this.input = input;
         this.statusIndicator = statusIndicator;
+        this.docsButton = docsButton;
         this.sendButton = sendButton;
         this.closeButton = closeButton;
         this.inputWidget = this.createInputWidget();
@@ -417,6 +418,11 @@ class CTCopilot {
         const statusIndicator = document.createElement('span');
         statusIndicator.className = 'ct-copilot-status';
 
+        const docsButton = document.createElement('button');
+        docsButton.className = 'ct-copilot-docs-button';
+        docsButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+        docsButton.title = 'Load CT.js Documentation';
+
         const sendButton = document.createElement('button');
         sendButton.className = 'ct-copilot-send-button';
         sendButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8l13-6-3 13-3-7-7-0z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -428,6 +434,7 @@ class CTCopilot {
         closeButton.title = 'Close (Esc)';
 
         toolbar.appendChild(statusIndicator);
+        toolbar.appendChild(docsButton);
         toolbar.appendChild(sendButton);
         toolbar.appendChild(closeButton);
 
@@ -435,7 +442,7 @@ class CTCopilot {
         contentWrapper.appendChild(toolbar);
         container.appendChild(contentWrapper);
 
-        return { container, input, statusIndicator, sendButton, closeButton };
+        return { container, input, statusIndicator, docsButton, sendButton, closeButton };
     }
 
     createInputWidget() {
@@ -473,6 +480,33 @@ class CTCopilot {
         });
 
         this.inputContainer.addEventListener('mousedown', (e) => e.stopPropagation());
+
+        this.docsButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (this.isProcessing) return;
+
+            this.isProcessing = true;
+            this.docsButton.disabled = true;
+            this.sendButton.disabled = true;
+            this.input.disabled = true;
+            this.closeButton.disabled = true;
+            this.updateStatus('Loading documentation...');
+
+            try {
+                await this.aiProvider.loadCTJSDocumentation();
+                this.updateStatus('Documentation loaded successfully!');
+                setTimeout(() => this.clearStatus(), 3000);
+            } catch (error) {
+                console.error('Documentation loading error:', error);
+                this.updateStatus('Failed to load documentation', true);
+            } finally {
+                this.isProcessing = false;
+                this.docsButton.disabled = false;
+                this.sendButton.disabled = false;
+                this.input.disabled = false;
+                this.closeButton.disabled = false;
+            }
+        });
 
         this.sendButton.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -607,6 +641,7 @@ class CTCopilot {
         this.sendButton.disabled = true;
         this.input.disabled = true;
         this.closeButton.disabled = true;
+        this.docsButton.disabled = true;
         this.updateStatus('Processing...');
 
         try {
@@ -630,6 +665,7 @@ class CTCopilot {
             this.sendButton.disabled = false;
             this.input.disabled = false;
             this.closeButton.disabled = false;
+            this.docsButton.disabled = false;
         }
     }
 
