@@ -1,11 +1,14 @@
 import { StateGraph, Annotation, MessagesAnnotation } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { OpenAIEmbeddings } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
+import { Document } from "@langchain/core/documents";
 
 class AIProvider {
     static STORAGE_KEY = 'ctCopilotConfig';
     static DEFAULT_PROVIDER = 'openai';
-    static DEFAULT_TEMPERATURE = 0.7;
+    static DEFAULT_TEMPERATURE = 0.3;
     
     static PROVIDER_NAMES = {
         openai: 'OpenAI (GPT-4)'
@@ -24,18 +27,21 @@ class AIProvider {
 6. Do not add comments unless specifically requested
 7. Ensure the code is syntactically correct and executable
 8. Keep the same level of code formatting as the original
-9. Use documentation from the website 
-    https://docs.ctjs.rocks/templates.html or https://docs.ctjs.rocks/copy.html for any template-specific code or APIs
-    https://docs.ctjs.rocks/rooms.html for any room-specific code or APIs
-    https://docs.ctjs.rocks/res.html for any resource-specific code or APIs
-    https://docs.ctjs.rocks/camera.html for any camera-specific code or APIs
-    https://docs.ctjs.rocks/tilemaps.html for any tilemap-specific code or APIs
-    https://docs.ctjs.rocks/inputs.html for any input-specific code or APIs
-    https://docs.ctjs.rocks/u.html for any utility-specific code or APIs
-10. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
-11. Always prioritize code correctness and functionality over brevity or conciseness
-12. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
-13. Do not include any additional text, explanations, or formatting in your response - return only the modified code`;
+9. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
+10. Always prioritize code correctness and functionality over brevity or conciseness
+11. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
+12. Do not include any additional text, explanations, or formatting in your response - return only the modified code`;
+
+    static DOCUMENTATION_URLS = [
+        'https://docs.ctjs.rocks/templates.html',
+        'https://docs.ctjs.rocks/copy.html',
+        'https://docs.ctjs.rocks/rooms.html',
+        'https://docs.ctjs.rocks/res.html',
+        'https://docs.ctjs.rocks/camera.html',
+        'https://docs.ctjs.rocks/tilemaps.html',
+        'https://docs.ctjs.rocks/inputs.html',
+        'https://docs.ctjs.rocks/u.html'
+    ];
 
     constructor() {
         this.config = {
@@ -43,9 +49,66 @@ class AIProvider {
             apiKey: ''
         };
         this.graph = null;
+        this.vectorStore = null;
+        this.embeddings = null;
         
         this.loadConfig();
+        this.initializeRAG();
         this.initializeGraph();
+    }
+
+    async initializeRAG() {
+        if (!this.config.apiKey) {
+            return;
+        }
+
+        try {
+            this.embeddings = new OpenAIEmbeddings({
+                apiKey: this.config.apiKey
+            });
+
+            // Initialize with empty vector store
+            this.vectorStore = new MemoryVectorStore(this.embeddings);
+        } catch (error) {
+            console.error('Failed to initialize RAG:', error);
+        }
+    }
+
+    async addDocumentation(content, metadata = {}) {
+        if (!this.vectorStore) {
+            await this.initializeRAG();
+        }
+
+        try {
+            const doc = new Document({
+                pageContent: content,
+                metadata: {
+                    source: metadata.source || 'custom',
+                    timestamp: new Date().toISOString(),
+                    ...metadata
+                }
+            });
+
+            await this.vectorStore.addDocuments([doc]);
+            return true;
+        } catch (error) {
+            console.error('Failed to add documentation:', error);
+            return false;
+        }
+    }
+
+    async retrieveContext(query, k = 3) {
+        if (!this.vectorStore) {
+            return [];
+        }
+
+        try {
+            const results = await this.vectorStore.similaritySearch(query, k);
+            return results;
+        } catch (error) {
+            console.error('Failed to retrieve context:', error);
+            return [];
+        }
     }
 
     initializeGraph() {
@@ -53,15 +116,33 @@ class AIProvider {
             ...MessagesAnnotation.spec,
             code: Annotation(),
             prompt: Annotation(),
+            context: Annotation(),
             result: Annotation()
         });
 
         const workflow = new StateGraph(StateAnnotation)
+            .addNode("retrieve", async (state) => {
+                // Retrieve relevant documentation based on code and prompt
+                const query = `${state.prompt}\n\nCode context: ${state.code.substring(0, 500)}`;
+                const docs = await this.retrieveContext(query, 3);
+                
+                const context = docs.length > 0
+                    ? docs.map(doc => doc.pageContent).join('\n\n')
+                    : '';
+
+                return {
+                    context
+                };
+            })
             .addNode("process", async (state) => {
                 const model = this.createModel();
                 
+                const systemPrompt = state.context 
+                    ? `${AIProvider.SYSTEM_PROMPT}\n\nRelevant CT.js Documentation:\n${state.context}`
+                    : AIProvider.SYSTEM_PROMPT;
+
                 const messages = [
-                    new SystemMessage(AIProvider.SYSTEM_PROMPT),
+                    new SystemMessage(systemPrompt),
                     new HumanMessage(`Code:\n${state.code}\n\nModification: ${state.prompt}`)
                 ];
 
@@ -74,7 +155,8 @@ class AIProvider {
                     result: content
                 };
             })
-            .addEdge("__start__", "process")
+            .addEdge("__start__", "retrieve")
+            .addEdge("retrieve", "process")
             .addEdge("process", "__end__");
 
         this.graph = workflow.compile();
@@ -127,6 +209,7 @@ class AIProvider {
     setApiKey(apiKey) {
         this.config.apiKey = apiKey;
         this.saveConfig();
+        this.initializeRAG();
     }
 
     getProviderName() {
@@ -522,7 +605,9 @@ export const CTCopilotModule = {
         const copilot = new CTCopilot(editor, aiProvider);
         
         return {
-            dispose: () => copilot.dispose()
+            dispose: () => copilot.dispose(),
+            addDocumentation: (content, metadata) => aiProvider.addDocumentation(content, metadata),
+            getProvider: () => aiProvider
         };
     },
     

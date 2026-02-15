@@ -464,7 +464,12 @@
         }
         extendHotkeys(codeEditor);
 
-        CTCopilotModule.init(codeEditor);
+        const copilot = CTCopilotModule.init(codeEditor);
+
+        copilot.addDocumentation(
+            'rooms.switch() changes the current room',
+            { source: 'rooms-api' }
+        );
 
         return codeEditor;
     };
