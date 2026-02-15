@@ -30,19 +30,12 @@ class AIProvider {
 6. Do not add comments unless specifically requested
 7. Ensure the code is syntactically correct and executable
 8. Keep the same level of code formatting as the original
-9. Use documentation from the website 
-    https://docs.ctjs.rocks/templates.html or https://docs.ctjs.rocks/copy.html for any template-specific code or APIs
-    https://docs.ctjs.rocks/rooms.html for any room-specific code or APIs
-    https://docs.ctjs.rocks/res.html for any resource-specific code or APIs
-    https://docs.ctjs.rocks/camera.html for any camera-specific code or APIs
-    https://docs.ctjs.rocks/tilemaps.html for any tilemap-specific code or APIs
-    https://docs.ctjs.rocks/inputs.html for any input-specific code or APIs
-    https://docs.ctjs.rocks/u.html for any utility-specific code or APIs
+9. Important! Use only Relevant CT.js Documentation.
 10. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
 11. Always prioritize code correctness and functionality over brevity or conciseness
 12. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
-13. Do not include any additional text, explanations, or formatting in your response - return only the modified code
-14. Use the provided context from CT.js documentation to inform your modifications when relevant`;
+13. Do not include any additional text, explanations, or formatting in your response - return only the modified code.
+14. Important! Double check the resulting code for syntax errors or formatting issues before returning it. If you find any, fix them while preserving the original code style.`;
 
     static DOCUMENTATION_URLS = [
         'https://docs.ctjs.rocks/templates.html',
@@ -168,6 +161,8 @@ class AIProvider {
         for (const url of urls) {
             const result = await this.loadWebDocument(url, options);
             results.push(result);
+
+            console.log(`Loaded ${result.success ? 'successfully' : 'with error'}: ${url}`);
             
             // Add delay between requests to avoid rate limiting
             if (options.delay) {
