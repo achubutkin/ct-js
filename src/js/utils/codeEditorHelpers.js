@@ -464,12 +464,6 @@
         }
         extendHotkeys(codeEditor);
 
-        AIProvider.loadConfig();
-
-        if (AIProvider.isConfigured()) {
-            CTCopilot.init(codeEditor);
-        }
-
         return codeEditor;
     };
 })();
