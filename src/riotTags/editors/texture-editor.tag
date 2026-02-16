@@ -211,6 +211,8 @@ mixin sliceSettings
                 )
 
 mixin axisSettings
+    b {vocFull.scriptables.description}
+    textarea.code.wide(placeholder="{vocFull.scriptables.descriptionHint}" style="min-height: 5rem;" value="{asset.description}" onchange="{wire('asset.description')}")
     h3.flexrow
         span.alignmiddle
             .aPivotSymbol.nml

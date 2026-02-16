@@ -1755,6 +1755,8 @@
         "baseClassWarning": "This event doesn't work with the current base class.",
         "typedefs": "Additional type definitions:",
         "typedefsHint": "You can describe additional properties in this asset so they are definitely typed. Example:\n\nname: string;\nhp: number;\nmana: number;\ninventory: any[];\n\nThis is completely optional.",
+        "description": "Description:",
+        "descriptionHint": "These description are not used by ct.js itself, it's for developer and they can be helpful for AI assistant to understand the object.",
         "coreEventsCategories": {
             "lifecycle": "Lifecycle",
             "actions": "Actions",

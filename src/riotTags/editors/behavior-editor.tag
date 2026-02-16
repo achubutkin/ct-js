@@ -41,6 +41,8 @@ behavior-editor.aPanel.aView.flexrow(class="{opts.class} {demonstrationmode: dem
         .aPanel.tall.pad(if="{currentSheet === 'fields'}")
             h1 {voc.customFields}
             p {voc.customFieldsDescription}
+            b {vocFull.scriptables.description}
+            textarea.code.wide(placeholder="{vocFull.scriptables.descriptionHint}" style="min-height: 5rem;" value="{asset.description}" onchange="{wire('asset.description')}")
             extensions-editor(customextends="{extends}" entity="{asset}" compact="true" onchanged="{() => this.update()}")
             .aSpacer(if="{window.currentProject.language === 'typescript'}")
             label.block(if="{window.currentProject.language === 'typescript'}")

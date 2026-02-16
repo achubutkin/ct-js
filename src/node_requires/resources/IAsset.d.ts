@@ -3,4 +3,5 @@ interface IAsset {
     readonly uid: string;
     lastmod: number;
     name: string;
+    description?: string;
 }

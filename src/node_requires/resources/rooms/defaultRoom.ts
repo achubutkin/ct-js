@@ -36,7 +36,8 @@ const get = function (): IRoom {
         events: [],
         behaviors: [],
         extendTypes: '',
-        uid
+        uid,
+        description: ''
     });
     return newRoom;
 };

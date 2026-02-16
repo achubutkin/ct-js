@@ -4,6 +4,8 @@
     @attribute updatebg (riot function)
     @attribute history (History)
 room-properties.npt(class="{opts.class}")
+    b {parent.vocFull.scriptables.description}
+    textarea.code.wide(placeholder="{parent.vocFull.scriptables.descriptionHint}" style="min-height: 5rem;" value="{opts.room.description}" onchange="{wire('opts.room.description')}")
     collapsible-section.anInsetPanel(
         heading="{voc.viewportHeading}"
         defaultstate="opened"

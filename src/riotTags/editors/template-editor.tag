@@ -1,4 +1,6 @@
 mixin templateProperties
+    b {parent.vocFull.scriptables.description}
+    textarea.code.wide(placeholder="{parent.vocFull.scriptables.descriptionHint}" style="min-height: 5rem;" value="{asset.description}" onchange="{wire('asset.description')}")
     collapsible-section.anInsetPanel(
         heading="{capitalize(vocGlob.assetTypes.behavior[2])}"
         storestatekey="templateBehaviors"
