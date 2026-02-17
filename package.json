@@ -25,10 +25,8 @@
   "dependencies": {
     "@capacitor/cli": "^5.7.8",
     "@capacitor/core": "^5.7.8",
-    "@langchain/classic": "1.0.17",
     "@langchain/community": "1.1.15",
     "@langchain/core": "1.1.24",
-    "@langchain/langgraph": "1.0.0",
     "@langchain/openai": "1.2.7",
     "@langchain/textsplitters": "1.0.1",
     "@pixi/particle-emitter": "5.0.8",
@@ -50,6 +48,7 @@
     "is-expression": "^4.0.0",
     "javascript-obfuscator": "^4.2.2",
     "js-yaml": "^3.14.2",
+    "langchain": "1.2.24",
     "markdown-it": "12.3.2",
     "maxrects-packer": "^2.7.3",
     "monaco-editor": "^0.47.0",
