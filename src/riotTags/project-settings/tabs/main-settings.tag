@@ -65,8 +65,10 @@ main-settings
             this.authoring.title = e.target.value.trim();
         };
 
-       this.loadAiConfig = () => {
-            const stored = localStorage.getItem('ct-copilot-config');
+        const ctCopilotConfigKey = 'ctCopilotConfig';
+
+        this.loadAiConfig = () => {
+            const stored = localStorage.getItem(ctCopilotConfigKey);
             if (stored) {
                 try {
                     const config = JSON.parse(stored);
@@ -83,7 +85,7 @@ main-settings
         };
 
         this.saveAiConfig = () => {
-            localStorage.setItem('ctCopilotConfig', JSON.stringify({
+            localStorage.setItem(ctCopilotConfigKey, JSON.stringify({
                 provider: this.aiProvider,
                 apiKey: this.aiApiKey
             }));
