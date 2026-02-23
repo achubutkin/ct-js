@@ -1,4 +1,4 @@
-import { StateGraph, Annotation, MessagesAnnotation } from "@langchain/langgraph";
+import { StateGraph, Annotation, MessagesAnnotation, START, END } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
@@ -7,6 +7,15 @@ import { Document } from "@langchain/core/documents";
 import "cheerio";
 import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { tool } from "@langchain/core/tools";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import * as z from "zod";
+const resources = require('src/node_requires/resources');
+
+const createFolderStructureSchema = z.object({
+    name: z.string().describe('Name of the folder or file to create.'),
+    children: z.array(z.lazy(() => createFolderStructureSchema)).describe('Array of child folders/files. Each child should have the same structure with "name" and optional "children".')
+}).describe('Schema for defining a folder structure. Each item represents a folder, with an optional array of children for nested structures.');
 
 class AIProvider {
     static STORAGE_KEY = 'ctCopilotConfig';
@@ -21,23 +30,46 @@ class AIProvider {
         openai: 'gpt-4o'
     };
 
-    static SYSTEM_PROMPT = `You are a JavaScript code modification assistant. Follow these rules strictly:
-1. Return ONLY the modified code without any explanations, comments, or markdown formatting
-2. Preserve the original code structure and indentation style
-3. Use modern JavaScript ES6+ syntax when appropriate
-4. Follow JavaScript best practices and conventions
-5. Maintain existing variable naming conventions
-6. Do not add comments unless specifically requested
-7. Ensure the code is syntactically correct and executable
-8. Keep the same level of code formatting as the original
-9. Important! Use only Relevant CT.js Documentation.
-10. If the modification cannot be made based on the provided code and prompt, return the original code unchanged
-11. Always prioritize code correctness and functionality over brevity or conciseness
-12. If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
-13. Do not include any additional text, explanations, or formatting in your response - return only the modified code.
-14. Important! Double check the resulting code for syntax errors or formatting issues before returning it. If you find any, fix them while preserving the original code style.`;
+    static SYSTEM_PROMPT = `You are an assistant in the CT.js game development engine. Follow these rules strictly:
+
+Return ONLY the modified code without any explanations, comments, or markdown formatting
+
+Preserve the original code structure and indentation style
+
+Use modern JavaScript ES6+ syntax when appropriate
+
+Follow JavaScript best practices and conventions
+
+Maintain existing variable naming conventions
+
+Do not add comments unless specifically requested
+
+Ensure the code is syntactically correct and executable
+
+Keep the same level of code formatting as the original
+
+Use only relevant CT.js documentation
+
+If the modification cannot be made based on the provided code and prompt, return the original code unchanged
+
+Prioritize code correctness and functionality over brevity or conciseness
+
+If the prompt is unclear or ambiguous, make a best effort to interpret it in a way that results in a meaningful code modification
+
+Do not include any additional text, explanations, or formatting in your response — return only the modified code
+
+Double-check the resulting code for syntax errors or formatting issues before returning it; fix any issues while preserving the original code style
+
+Use the create_folder_structure tool if the prompt requests creating folders based on a description; this tool creates folder structures only, based on CT.js concepts: textures, templates, behaviours, sounds, UI templates, and rooms. The input must be a JSON string representing the folder hierarchy using CamelCase for folder names
+
+Always assume this is CT.js code and the user is asking for CT.js-related modifications; if the prompt is not specific, infer the most likely intent based on common CT.js use cases and patterns
+
+When modifying or generating code, follow common browser-based 2D game development patterns, such as state-based architecture, modular entity/component structures, event-driven gameplay loops, reusable behaviours, and separation of rendering logic from game logic
+
+Ensure project structures adhere to scalable game development practices, including grouping assets logically, organizing behaviours by responsibility, and maintaining consistent patterns across templates, rooms, and UI elements`;
 
     static DOCUMENTATION_URLS = [
+        "https://docs.ctjs.rocks/ct-concepts.html",
         'https://docs.ctjs.rocks/templates.html',
         'https://docs.ctjs.rocks/copy.html',
         'https://docs.ctjs.rocks/rooms.html',
@@ -64,6 +96,7 @@ class AIProvider {
         this.loadConfig();
         this.initializeRAG();
         this.initializeGraph();
+        this.initializeModel();   
     }
 
     async initializeRAG() {
@@ -216,9 +249,8 @@ class AIProvider {
 
         const workflow = new StateGraph(StateAnnotation)
             .addNode("retrieve", async (state) => {
-                // Retrieve relevant documentation based on code and prompt
-                const query = `${state.prompt}\n\nCode context: ${state.code.substring(0, 500)}`;
-                const docs = await this.retrieveContext(query, 3);
+                const query = `${state.prompt}\n\nBasic concepts\n\nCode context: ${state.code.substring(0, 500)}`;
+                const docs = await this.retrieveContext(query, 10);
                 
                 const context = docs.length > 0
                     ? docs.map(doc => doc.pageContent).join('\n\n')
@@ -228,42 +260,72 @@ class AIProvider {
                     context
                 };
             })
-            .addNode("process", async (state) => {
-                const model = this.createModel();
-                
+            .addNode("llm", async (state) => {
                 const systemPrompt = state.context 
                     ? `${AIProvider.SYSTEM_PROMPT}\n\nRelevant CT.js Documentation:\n${state.context}`
                     : AIProvider.SYSTEM_PROMPT;
+
+                if (state.messages) {
+                    const lastMessage = state.messages[state.messages.length - 1];
+                    if (lastMessage?.type === 'tool' && lastMessage?.status === 'success') {
+                        return { messages: [...state.messages, new HumanMessage("Tool execution successfully.")] };
+                    }
+                }
 
                 const messages = [
                     new SystemMessage(systemPrompt),
                     new HumanMessage(`Code:\n${state.code}\n\nModification: ${state.prompt}`)
                 ];
 
-                const response = await model.invoke(messages);
+                const response = await this.model.invoke(messages);
+
+                return {
+                    messages: [...state.messages, ...messages, response]
+                };
+
+                /*
                 let content = response.content;
                 
                 content = content.trim().replace(/```[\w]*\n?/g, '').trim();
 
                 return {
                     result: content
-                };
+                }
+                */
             })
-            .addEdge("__start__", "retrieve")
-            .addEdge("retrieve", "process")
-            .addEdge("process", "__end__");
+            .addNode("tools", new ToolNode([this.createFolderStructure]))
+            .addEdge(START, "retrieve")
+            .addEdge("retrieve", "llm")
+            .addConditionalEdges("llm", (state) => {
+                const { result } = state;
+
+                if (result) {
+                    return END;
+                }
+
+                const { messages } = state;
+                const lastMessage = messages[messages.length - 1];
+                if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls?.length) {
+                    return "tools";
+                }
+                return END;
+            })
+            .addEdge("tools", "llm");
 
         this.graph = workflow.compile();
     }
 
-    createModel() {
+    initializeModel() {
         const temperature = AIProvider.DEFAULT_TEMPERATURE;
 
-        return new ChatOpenAI({
+        const model = new ChatOpenAI({
             modelName: AIProvider.MODELS.openai,
             temperature,
             apiKey: this.config.apiKey
         });
+
+        this.model = model
+            .bindTools([this.createFolderStructure]);
     }
 
     loadConfig() {
@@ -335,6 +397,54 @@ class AIProvider {
             console.error('AI completion error:', error);
             throw error;
         }
+    }
+
+    createFolderStructure = tool(async (input) => {
+        try {
+            if (Array.isArray(input.children)) {
+                this.deleteAllExistingFolders();
+
+                for (const child of input.children) {
+                    await this.createFolderStructureCTjs(child, null);
+                }
+            }
+            return `Folder structure created successfully based on the provided description.`;
+        } catch (error) {
+            console.error('Failed to parse folder structure:', error);
+            throw new Error('Invalid JSON input for folder structure');
+        }
+    },
+    {
+        name: 'create_folder_structure',
+        description: 'Creates a folder structure based on the provided description. The input should be a JSON string representing the folder hierarchy.',
+        schema: createFolderStructureSchema
+    });
+
+    deleteAllExistingFolders() {
+        window.currentProject.assets.forEach(asset => {
+            if (asset.type === 'folder') {
+                resources.deleteFolder(asset);
+            }
+        });
+
+        window.signals.trigger('assetCreated');
+    }
+
+    createFolderStructureCTjs = async (input, parentFolder = null) => {
+        const newFolder = resources.createFolder(parentFolder);
+        newFolder.name = input.name;
+
+        window.signals.trigger('assetCreated');
+
+        await new Promise(resolve => setTimeout(resolve, 380));
+
+        if (Array.isArray(input.children)) {
+            for (const child of input.children) {
+                await this.createFolderStructureCTjs(child, newFolder);
+            }
+        }
+
+        return newFolder;
     }
 }
 
