@@ -95,7 +95,8 @@ app-view.flexcol
                 ref="openedEditors"
                 isactiveeditor="{asset === tab}"
             )
- 
+        div.flexitem.rightPane
+            aiAssistant
     exporter-error(if="{exporterError}" error="{exporterError}" onclose="{closeExportError}")
     new-project-onboarding(if="{sessionStorage.showOnboarding && localStorage.showOnboarding !== 'off'}")
     notepad-panel(ref="notepadPanel" show="{tab !== 'debug'}")

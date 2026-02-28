@@ -1,0 +1,136 @@
+aiAssistant
+    flex 1 1 0
+    display flex
+    flex-direction column
+    margin-left 16px
+    margin-right 16px
+    margin-bottom 16px
+
+    .startChatContainer
+        flex 1 1
+        flex-direction column
+        display flex
+
+        > div
+            display flex
+            margin-left 0px
+            margin-right 0px
+            flex-direction column
+            align-items stretch
+            justify-content center
+            flex 1 1 0%
+
+            > h1 
+                font-size: 26px
+                font-weight 900
+                line-height 34px
+                margin-bottom 16px
+
+    assistantInput 
+        .chat 
+            padding 2px
+            border-radius 4px
+            overflow hidden
+            position relative
+            width 100%
+            margin-bottom 16px
+
+            &::before 
+                background conic-gradient(from 90deg, transparent, transparent, transparent, transparent, transparent, transparent, #f6945b, #dfa9e4, transparent, transparent, transparent, transparent)
+                content ""
+                left -100px
+                position absolute
+                rotate 0deg
+                width calc(100% + 200px)
+                z-index 1
+                border-radius 4px
+                bottom 0
+                right 0
+                top 0
+                pointer-events none
+
+            &.thinking::before
+                animation spin 4s linear infinite
+
+            &::after 
+                background background
+                border-radius 3px
+                bottom 1px
+                content ""
+                left 1px
+                position absolute
+                right 1px
+                top 1px
+                z-index 2
+                -webkit-user-select none
+                user-select none
+
+            > textarea 
+                background background
+                box-sizing border-box
+                max-height 200px
+                min-height 21px
+                outline none
+                border none
+                resize none
+                z-index 3
+                padding 8px 16px
+                margin-bottom 0
+
+            .toolbar 
+                gap 16px
+                position relative 
+                z-index 3
+                padding 16px
+
+                .send-button
+                    flex 0
+
+                    button 
+                        padding 0
+                        width 40px
+                        height 40px
+                        line-height 2
+                        border-radius 20px
+                        display flex
+                        align-items center
+                        justify-content center
+
+                        svg 
+                            width 20px
+                            height 20px
+
+        .chat-mode-container
+            width 120px
+
+            select 
+                padding-left 40px
+
+            > svg:first-of-type
+                left 10px
+                right auto
+
+.select-container
+    position relative
+
+    select 
+        width 100%
+        height 40px
+        appearance none
+        -moz-appearance none
+        -ms-appearance none
+        border-radius 20px
+    svg 
+        position absolute
+        top 10px
+        left auto
+        right 14px
+        pointer-events none
+        width 20px
+        height 20px
+
+@keyframes spin
+    from
+        transform: rotate(0deg)
+    to
+        transform: rotate(360deg)
