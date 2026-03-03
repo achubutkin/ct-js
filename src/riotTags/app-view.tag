@@ -95,6 +95,8 @@ app-view.flexcol
                 ref="openedEditors"
                 isactiveeditor="{asset === tab}"
             )
+        div.flexitem.rightPane
+            aiAssistant
     exporter-error(if="{exporterError}" error="{exporterError}" onclose="{closeExportError}")
     new-project-onboarding(if="{sessionStorage.showOnboarding && localStorage.showOnboarding !== 'off'}")
     notepad-panel(ref="notepadPanel" show="{tab !== 'debug'}")
@@ -192,8 +194,10 @@ app-view.flexcol
         };
 
         window.signals.on('assetChanged', this.refreshDirty);
+        window.signals.on('assetCreated', this.update);
         this.on('unmount', () => {
             window.signals.off('assetChanged', this.refreshDirty);
+            window.signals.off('assetCreated', this.update);
         });
         const checkDeletedTabs = id => {
             if (typeof this.tab !== 'string' && this.tab.uid === id) {
