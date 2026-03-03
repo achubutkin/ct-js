@@ -1,13 +1,16 @@
 assistantInput 
-    div(class="chat {this.thinking ? 'thinking' : ''}")
+    div(class="chat {parent.thinking ? 'thinking' : ''}")
         textarea.chat(
             id="chat" 
             placeholder="How to make my game more fun?"
-            disabled="{this.thinking ? 'disabled' : ''}"
+            disabled="{parent.thinking ? 'disabled' : ''}"
         )
         div.toolbar.flexrow
             div.select-container
-                select(disabled="{this.thinking ? 'disabled' : ''}")
+                select(
+                    onchange="{parent.onChangeGptModel}"
+                    disabled="{parent.thinking ? 'disabled' : ''}"
+                )
                     option(value="gpt-5") {"GPT-5"}
                     option(value="gemini-3-flash") {"Gemini 3 Flash"}
                     option(value="grok-4-fast") {"Grok 4 Fast"}
@@ -16,44 +19,20 @@ assistantInput
             div.send-button 
                 button(
                     type="button" 
-                    onclick="{startThinking}"
-                    disabled="{this.thinking ? 'disabled' : ''}"
+                    onclick="{parent.onChatSendMessage}"
+                    disabled="{parent.thinking ? 'disabled' : ''}"
                 )
                     svg.feather
                         use(xlink:href="#chevron-right")
 
     div.select-container.chat-mode-container
         svg.feather
-            use(xlink:href="{mode === 'ask' ? '#help-circle' : '#tool'}")
+            use(xlink:href="{parent.chatMode === 'ask' ? '#help-circle' : '#tool'}")
         select(
-            onchange="{changeMode}"
-            disabled="{this.thinking ? 'disabled' : ''}"
+            onchange="{parent.onChangeChatMode}"
+            disabled="{parent.thinking ? 'disabled' : ''}"
         )
             option(value="ask") {"Ask"}
             option(value="build") {"Build"}
         svg.feather
             use(xlink:href="#chevron-down")
-
-    script.
-        this.mode = "ask";
-
-        this.changeMode = (e) => {
-            this.update({
-                mode: e.target.value
-            });
-        }
-
-        this.startThinking = () => {
-            if (this.thinking) 
-                return;
-
-            this.update({
-                thinking: true
-            });
-
-            setTimeout(() => {
-                this.update({
-                    thinking: false
-                });
-            }, 3000);
-        }
